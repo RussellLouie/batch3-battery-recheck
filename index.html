@@ -193,7 +193,7 @@ code,.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;fon
       <div class="tblwrap">
         <table id="tbl">
           <thead><tr>
-            <th>Row</th><th>Ref</th><th>Serial</th><th>Asset tag</th><th>Model</th>
+            <th>Row</th><th>Old ref</th><th>Serial</th><th>Asset tag</th><th>Model</th>
             <th class="num">Full chg</th><th class="num">Design</th><th class="num">Health</th><th class="num">Cycles</th><th>Status</th>
           </tr></thead>
           <tbody id="tbody"></tbody>
@@ -211,7 +211,8 @@ code,.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;fon
             <dt>Serial</dt><dd class="mono" id="iSerial"></dd>
             <dt>Asset tag</dt><dd id="iTag"></dd>
             <dt>Model</dt><dd id="iModel"></dd>
-            <dt>Ref no.</dt><dd id="iRef"></dd>
+            <dt>Old ref no.</dt><dd id="iOldRef" class="mono"></dd>
+            <dt>New ref no.</dt><dd id="iRef"></dd>
             <dt>Pre-disposal</dt><dd id="iOld" class="note"></dd>
           </dl>
           <div class="field">
@@ -240,8 +241,8 @@ code,.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;fon
           <div id="formMsg" hidden></div>
           <div class="actions">
             <button class="btn primary" id="reviewBtn">Review &amp; write to tracker</button>
-            <button class="btn" id="clearBtn">Clear</button>
-            <span class="note">Nothing is written until you confirm the exact cells.</span>
+            <button class="btn" id="clearBtn">Clear in tracker</button>
+            <span class="note">Nothing is written or cleared until you confirm the exact cells.</span>
           </div>
         </div>
       </div>
@@ -283,6 +284,7 @@ code,.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;fon
     <h3 style="font-size:13.5px">Column letters</h3>
     <div class="grid2">
       <div class="field"><label for="cRef">New reference no.</label><input id="cRef" class="mono"></div>
+      <div class="field"><label for="cOldRef">Old reference no.</label><input id="cOldRef" class="mono"></div>
       <div class="field"><label for="cSerial">Serial number</label><input id="cSerial" class="mono"></div>
       <div class="field"><label for="cTag">Asset tag</label><input id="cTag" class="mono"></div>
       <div class="field"><label for="cModel">Model</label><input id="cModel" class="mono"></div>
@@ -334,7 +336,7 @@ const DEFAULTS = {
   driveId:'b!1eLkAFJuGEyggRLcj4m4dK7yuuoxyhRChMXgqpKyEBD-5Y-sUrGEQJCb8TQjdX0a',
   itemId:'01XVPX7Z27VWL2WHL4LNALYZZVLA6M2BEG',
   sheet:'09-04-2026', headerRow:14,
-  col:{ref:'G', serial:'O', tag:'T', model:'Q', desc:'R', oldPct:'AN', det:'AQ', full:'AR', design:'AS', pct:'AT', cycles:'AU', cond:'AV'}
+  col:{ref:'G', oldRef:'H', serial:'O', tag:'T', model:'Q', desc:'R', oldPct:'AN', det:'AQ', full:'AR', design:'AS', pct:'AT', cycles:'AU', cond:'AV'}
 };
 const LS_KEY='b3-battery-recheck-settings', LOG_KEY='b3-battery-recheck-log';
 function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
@@ -433,7 +435,7 @@ async function loadSheet(){
       if(!serial) return;
       const f=rng.formulas[i], t=rng.text[i];
       rows.push({
-        row:first+i, serial, ref:v[ix.ref]??'', tag:v[ix.tag]??'', model:v[ix.model]??'', desc:v[ix.desc]??'', oldPct:v[ix.oldPct],
+        row:first+i, serial, ref:v[ix.ref]??'', oldRef:v[ix.oldRef]??'', tag:v[ix.tag]??'', model:v[ix.model]??'', desc:v[ix.desc]??'', oldPct:v[ix.oldPct],
         det:v[ix.det]??'', full:v[ix.full]??'', design:v[ix.design]??'', pct:v[ix.pct], pctText:t[ix.pct]??'', cycles:v[ix.cycles]??'', cond:v[ix.cond]??'',
         formulas:{det:f[ix.det], full:f[ix.full], design:f[ix.design], cycles:f[ix.cycles], pct:f[ix.pct], cond:f[ix.cond]}
       });
@@ -458,12 +460,12 @@ function render(){
   const n=rows.length||1, ps=$('prog').children;
   ps[0].style.flex=`0 0 ${ex/n*100}%`; ps[1].style.flex=`0 0 ${gd/n*100}%`; ps[2].style.flex=`0 0 ${bd/n*100}%`; ps[3].style.flex=`0 0 ${pend/n*100}%`;
   const q=$('search').value.trim().toLowerCase();
-  const list=rows.filter(r=> (filter==='all'||(filter==='done'?isDone(r):!isDone(r))) && (!q || [r.serial,r.tag,r.model,r.ref,r.desc].some(x=>String(x).toLowerCase().includes(q))));
+  const list=rows.filter(r=> (filter==='all'||(filter==='done'?isDone(r):!isDone(r))) && (!q || [r.serial,r.tag,r.model,r.ref,r.oldRef,r.desc].some(x=>String(x).toLowerCase().includes(q))));
   const tb=$('tbody'); tb.innerHTML='';
   for(const r of list){
     const b=rowBand(r);
     const tr=document.createElement('tr'); tr.dataset.row=r.row; if(selected&&selected.row===r.row) tr.className='sel';
-    tr.innerHTML=`<td class="mono">${r.row}</td><td>${esc(r.ref)}</td><td class="mono">${esc(r.serial)}</td><td>${esc(r.tag)}</td><td>${esc(r.model)}</td>
+    tr.innerHTML=`<td class="mono">${r.row}</td><td class="mono">${esc(r.oldRef)}</td><td class="mono">${esc(r.serial)}</td><td>${esc(r.tag)}</td><td>${esc(r.model)}</td>
       <td class="num mono">${fmtNum(r.full)}</td><td class="num mono">${fmtNum(r.design)}</td><td class="num mono">${isDone(r)?(r.pctText||pctText(r.pct)):''}</td><td class="num mono">${fmtNum(r.cycles)}</td>
       <td>${b?`<span class="pill ${b.k}">${b.label}</span>`:'<span class="pill pn">Pending</span>'}</td>`;
     tr.addEventListener('click',()=>select(r,true));
@@ -479,7 +481,7 @@ function select(r, fill){
   if(!r){ $('formBody').hidden=true; $('formEmpty').hidden=false; $('rowLabel').textContent=''; return; }
   $('formBody').hidden=false; $('formEmpty').hidden=true; $('formMsg').hidden=true;
   $('rowLabel').textContent=`Row ${r.row}`;
-  $('iSerial').textContent=r.serial; $('iTag').textContent=r.tag||'—'; $('iModel').textContent=[r.model,r.desc].filter(Boolean).join(' · ')||'—'; $('iRef').textContent=r.ref||'—';
+  $('iSerial').textContent=r.serial; $('iTag').textContent=r.tag||'—'; $('iModel').textContent=[r.model,r.desc].filter(Boolean).join(' · ')||'—'; $('iRef').textContent=r.ref||'—'; $('iOldRef').textContent=(r.oldRef===''||r.oldRef==null)?'—':String(r.oldRef);
   $('iOld').textContent = r.oldPct!==''&&r.oldPct!=null ? `health ${pctText(r.oldPct)} at pre-disposal check` : 'no pre-disposal figure';
   const c=S.col; $('cDetected').textContent=c.det+r.row; $('cFull').textContent=c.full+r.row; $('cDesign').textContent=c.design+r.row; $('cCycles').textContent=c.cycles+r.row;
   if(fill){ $('inDetected').value = r.det==='No'?'No':'Yes'; $('inFull').value=r.full===''?'':String(r.full); $('inDesign').value=r.design===''?'':String(r.design); $('inCycles').value=r.cycles===''?'':String(r.cycles); }
@@ -493,7 +495,7 @@ function preview(){
   $('pvBand').innerHTML = b? `<span class="pill ${b.k}">${b.label}</span>` : `<span class="pill pn">Enter both capacities</span>`;
 }
 ['inFull','inDesign','inCycles'].forEach(id=>$(id).addEventListener('input',preview));
-$('clearBtn').addEventListener('click',()=>{ $('inFull').value=''; $('inDesign').value=''; $('inCycles').value=''; $('inDetected').value='Yes'; preview(); });
+$('clearBtn').addEventListener('click',()=>review(true));
 [$('inFull'),$('inDesign'),$('inCycles')].forEach(el=>el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); review(); } }));
 
 /* ---------- review & write ---------- */
@@ -508,37 +510,51 @@ function validate(){
   }
   return {errs, det, full, design, cyc};
 }
-async function review(){
+async function review(clear=false){
   if(!selected) return;
-  const v=validate();
-  if(v.errs.length){ setMsg($('formMsg'),'errbox',v.errs.map(esc).join('<br>')); return; }
-  $('formMsg').hidden=true;
   const r=selected, c=S.col;
-  const cells=[
-    {addr:c.det+r.row, field:'Battery detected', old:r.det, val:v.det, f:r.formulas.det},
-    {addr:c.full+r.row, field:'Full charge capacity', old:r.full, val: v.det==='Yes'? v.full : '', f:r.formulas.full},
-    {addr:c.design+r.row, field:'Design capacity', old:r.design, val: v.det==='Yes'? v.design : '', f:r.formulas.design},
-    {addr:c.cycles+r.row, field:'Cycle count', old:r.cycles, val: (v.det==='Yes' && !isNaN(v.cyc))? v.cyc : '', f:r.formulas.cycles},
-  ];
+  let cells;
+  if(clear){
+    $('formMsg').hidden=true;
+    cells=[
+      {addr:c.det+r.row, field:'Battery detected', old:r.det, val:'', f:r.formulas.det},
+      {addr:c.full+r.row, field:'Full charge capacity', old:r.full, val:'', f:r.formulas.full},
+      {addr:c.design+r.row, field:'Design capacity', old:r.design, val:'', f:r.formulas.design},
+      {addr:c.cycles+r.row, field:'Cycle count', old:r.cycles, val:'', f:r.formulas.cycles},
+    ];
+  }else{
+    const v=validate();
+    if(v.errs.length){ setMsg($('formMsg'),'errbox',v.errs.map(esc).join('<br>')); return; }
+    $('formMsg').hidden=true;
+    cells=[
+      {addr:c.det+r.row, field:'Battery detected', old:r.det, val:v.det, f:r.formulas.det},
+      {addr:c.full+r.row, field:'Full charge capacity', old:r.full, val: v.det==='Yes'? v.full : '', f:r.formulas.full},
+      {addr:c.design+r.row, field:'Design capacity', old:r.design, val: v.det==='Yes'? v.design : '', f:r.formulas.design},
+      {addr:c.cycles+r.row, field:'Cycle count', old:r.cycles, val: (v.det==='Yes' && !isNaN(v.cyc))? v.cyc : '', f:r.formulas.cycles},
+    ];
+  }
   const formulaHits=cells.filter(x=>typeof x.f==='string' && x.f.startsWith('='));
   const checks=[];
   if(formulaHits.length){ checks.push(`<div class="errbox">Refusing: ${formulaHits.map(x=>x.addr).join(', ')} contain formulas. Check the column letters in Settings.</div>`); }
   const changed=cells.filter(x=>String(x.old??'')!==String(x.val??''));
-  if(!changed.length){ setMsg($('formMsg'),'warnbox','These values are already in the tracker — nothing to write.'); return; }
+  if(!changed.length){ setMsg($('formMsg'),'warnbox', clear? 'These cells are already blank in the tracker — nothing to clear.' : 'These values are already in the tracker — nothing to write.'); return; }
   const overwrite=cells.filter(x=>String(x.old??'')!=='' && String(x.old??'')!==String(x.val??''));
-  if(overwrite.length) checks.push(`<div class="warnbox">This <b>overwrites</b> existing values in ${overwrite.map(x=>x.addr).join(', ')}.</div>`);
+  if(clear) checks.push(`<div class="warnbox">This <b>clears</b> the new battery health values for this laptop from the tracker (${overwrite.map(x=>x.addr).join(', ')}). The row goes back to Pending.</div>`);
+  else if(overwrite.length) checks.push(`<div class="warnbox">This <b>overwrites</b> existing values in ${overwrite.map(x=>x.addr).join(', ')}.</div>`);
+  $('confirmTitle').textContent= clear? 'Confirm clearing tracker cells' : 'Confirm write to the tracker';
+  $('confirmWrite').textContent= clear? 'Clear these cells' : 'Write these cells';
   $('confirmIdent').innerHTML=`Row <b>${r.row}</b> · serial <span class="mono">${esc(r.serial)}</span> · ${esc(r.tag||'')} ${esc(r.model||'')}. The row's serial is re-read from the file right before writing; if it no longer matches, nothing is written.`;
   $('confirmChecks').innerHTML=checks.join('');
   $('confirmRows').innerHTML=cells.map(x=>`<tr><td class="mono">${x.addr}</td><td>${x.field}</td><td class="old mono">${esc(x.old===''?'(blank)':fmtNum(x.old))}</td><td class="mono"><b>${esc(x.val===''?'(blank)':fmtNum(x.val))}</b></td></tr>`).join('');
   $('confirmSheet').textContent=S.sheet;
   $('confirmWrite').disabled=formulaHits.length>0;
-  pending={r,cells};
+  pending={r,cells,clear};
   $('confirmModal').hidden=false; $('confirmWrite').focus();
 }
 async function doWrite(){
   if(!pending) return;
-  const {r,cells}=pending; const c=S.col; const btn=$('confirmWrite');
-  btn.disabled=true; btn.textContent='Writing…';
+  const {r,cells,clear}=pending; const c=S.col; const btn=$('confirmWrite');
+  btn.disabled=true; btn.textContent= clear? 'Clearing…' : 'Writing…';
   try{
     // 1. identity + formula guard, read fresh
     const guardAddr=`${c.serial}${r.row}:${c.serial}${r.row}`;
@@ -564,17 +580,18 @@ async function doWrite(){
     const mismatch=cells.filter(x=>{ const k=Object.keys(c).find(k=>c[k]===x.addr.replace(/\d+/,'')); return String(r[k]??'')!==String(x.val??''); });
     addLog({t:Date.now(), row:r.row, serial:r.serial, cells:cells.map(x=>`${x.addr}=${x.val===''?'(blank)':x.val}`).join(' '), user:account.username, back:`${r.pctText||pctText(r.pct)} ${r.cond}`});
     $('confirmModal').hidden=true; pending=null;
-    render(); select(r,false);
+    render(); select(r, clear);
     if(mismatch.length) setMsg($('formMsg'),'warnbox',`Written, but read-back differs for ${mismatch.map(x=>x.addr).join(', ')}. Open the file and check.`);
+    else if(clear) setMsg($('formMsg'),'okbox',`Cleared and verified. Row ${r.row} is back to Pending in the tracker.`);
     else setMsg($('formMsg'),'okbox',`Written and verified. Excel now shows <b>${esc(r.pctText||pctText(r.pct))}</b> · <b>${esc(r.cond)}</b> for row ${r.row}.`);
-    toast(`Row ${r.row} (${r.serial}) written and verified`);
+    toast(clear? `Row ${r.row} (${r.serial}) cleared in the tracker` : `Row ${r.row} (${r.serial}) written and verified`);
     // advance to next pending
     const next=rows.find(x=>!isDone(x) && x.row>r.row) || rows.find(x=>!isDone(x));
-    if(next && filter==='pending'){ setTimeout(()=>select(next,true),600); }
+    if(!clear && next && filter==='pending'){ setTimeout(()=>select(next,true),600); }
   }catch(e){
     $('confirmModal').hidden=true; pending=null;
     setMsg($('formMsg'),'errbox','Write stopped: '+esc(e.message));
-  }finally{ btn.disabled=false; btn.textContent='Write these cells'; }
+  }finally{ btn.disabled=false; btn.textContent= pending&&pending.clear? 'Clear these cells' : 'Write these cells'; }
 }
 function addLog(entry){ const log=lsGet(LOG_KEY)||[]; log.unshift(entry); lsSet(LOG_KEY, log.slice(0,100)); renderLog(); }
 function renderLog(){ const log=lsGet(LOG_KEY)||[]; const ul=$('logList'); ul.innerHTML= log.length? log.map(e=>`<li><time>${new Date(e.t).toLocaleString()}</time><span>Row ${e.row} · <span class="mono">${esc(e.serial)}</span></span><span class="mono">${esc(e.cells)}</span><span class="note">→ ${esc(e.back||'')}</span><span class="note">${esc(e.user||'')}</span></li>`).join('') : '<li class="note">No writes yet.</li>'; }
@@ -582,12 +599,12 @@ function renderLog(){ const log=lsGet(LOG_KEY)||[]; const ul=$('logList'); ul.in
 /* ---------- settings UI ---------- */
 function openSettings(){
   $('sClient').value=S.clientId; $('sTenant').value=S.tenantId; $('sDrive').value=S.driveId; $('sItem').value=S.itemId; $('sSheet').value=S.sheet; $('sHeader').value=S.headerRow;
-  const m={cRef:'ref',cSerial:'serial',cTag:'tag',cModel:'model',cDesc:'desc',cOldPct:'oldPct',cDet:'det',cFullW:'full',cDesignW:'design',cPct:'pct',cCyclesW:'cycles',cCond:'cond'};
-  for(const [id,k] of Object.entries(m)) $(id).value=S.col[k];
+  const m={cRef:'ref',cOldRef:'oldRef',cSerial:'serial',cTag:'tag',cModel:'model',cDesc:'desc',cOldPct:'oldPct',cDet:'det',cFullW:'full',cDesignW:'design',cPct:'pct',cCyclesW:'cycles',cCond:'cond'};
+  for(const [id,k] of Object.entries(m)) $(id).value=S.col[k]||DEFAULTS.col[k];
   $('settingsModal').hidden=false; $('sClient').focus();
 }
 $('saveSettings').addEventListener('click',()=>{
-  const m={cRef:'ref',cSerial:'serial',cTag:'tag',cModel:'model',cDesc:'desc',cOldPct:'oldPct',cDet:'det',cFullW:'full',cDesignW:'design',cPct:'pct',cCyclesW:'cycles',cCond:'cond'};
+  const m={cRef:'ref',cOldRef:'oldRef',cSerial:'serial',cTag:'tag',cModel:'model',cDesc:'desc',cOldPct:'oldPct',cDet:'det',cFullW:'full',cDesignW:'design',cPct:'pct',cCyclesW:'cycles',cCond:'cond'};
   const col={}; for(const [id,k] of Object.entries(m)){ const v=$(id).value.trim().toUpperCase(); if(!/^[A-Z]{1,3}$/.test(v)){ toast('Column letters must be A–XFD'); return; } col[k]=v; }
   S={clientId:$('sClient').value.trim(), tenantId:$('sTenant').value.trim()||'organizations', driveId:$('sDrive').value.trim(), itemId:$('sItem').value.trim(), sheet:$('sSheet').value.trim(), headerRow:Number($('sHeader').value)||14, col};
   lsSet(LS_KEY,S); $('settingsModal').hidden=true; toast('Settings saved'); boot();
