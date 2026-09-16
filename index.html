@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Batch 3 Battery Recheck</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --surface-2:#e9edf2; --line:#d5dbe3; --line-strong:#b9c2ce;
+  --ink:#141a22; --ink-2:#4b5666; --ink-3:#7a8595;
+  --accent:#0f6e73; --accent-ink:#ffffff; --accent-soft:#d9eeee;
+  --good:#1f7a3a; --good-soft:#dcf2e2; --warn:#9a6a00; --warn-soft:#fbefc9; --bad:#b3261e; --bad-soft:#fadcd9;
+  --pending:#8a94a3; --pending-soft:#e5e9ee;
+  --focus:#0f6e73;
+  --shadow:0 8px 28px rgba(20,26,34,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1418; --surface:#171d23; --surface-2:#1f272f; --line:#2b353f; --line-strong:#3c4853;
+    --ink:#e8edf2; --ink-2:#aab4c0; --ink-3:#76828f;
+    --accent:#4fb7bd; --accent-ink:#06282a; --accent-soft:#12343a;
+    --good:#5fcf83; --good-soft:#123521; --warn:#e6b64a; --warn-soft:#3a2d0a; --bad:#f28b84; --bad-soft:#44181a;
+    --pending:#8a94a3; --pending-soft:#262e37;
+    --focus:#4fb7bd;
+    --shadow:0 8px 28px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1418; --surface:#171d23; --surface-2:#1f272f; --line:#2b353f; --line-strong:#3c4853;
+  --ink:#e8edf2; --ink-2:#aab4c0; --ink-3:#76828f;
+  --accent:#4fb7bd; --accent-ink:#06282a; --accent-soft:#12343a;
+  --good:#5fcf83; --good-soft:#123521; --warn:#e6b64a; --warn-soft:#3a2d0a; --bad:#f28b84; --bad-soft:#44181a;
+  --pending:#8a94a3; --pending-soft:#262e37;
+  --focus:#4fb7bd;
+  --shadow:0 8px 28px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-block:0 32px;padding-inline:16px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+a{color:var(--accent)}
+.wrap{max-width:1360px;margin:0 auto}
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:18px 14px;border-bottom:1px solid var(--line)}
+.top h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
+.top .sub{color:var(--ink-3);font-size:12.5px;margin-top:2px}
+.spacer{flex:1}
+.conn{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--pending);flex:none}
+.dot.on{background:var(--good)} .dot.err{background:var(--bad)}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:6px;padding:7px 12px;font-weight:500;line-height:1.2;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.icon{padding:7px 9px}
+.btn.sm{padding:5px 9px;font-size:12.5px}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-block:16px 10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .lab{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500;display:flex;align-items:center;gap:6px}
+.kpi .val{font-size:26px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .hint{font-size:12px;color:var(--ink-3)}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.sw.ex{background:var(--good)} .sw.gd{background:var(--accent)} .sw.bd{background:var(--bad)} .sw.pn{background:var(--pending)}
+.prog{height:10px;border-radius:5px;overflow:hidden;display:flex;gap:2px;background:var(--surface-2);margin-bottom:18px}
+.prog span{display:block;height:100%;min-width:0}
+.prog .ex{background:var(--good)} .prog .gd{background:var(--accent)} .prog .bd{background:var(--bad)} .prog .pn{background:var(--pending-soft)}
+/* layout */
+.main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,.9fr);gap:16px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:0}
+.panel-h{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.panel-h h2{font-size:13px;font-weight:600;margin:0;letter-spacing:.02em}
+.search{flex:1;min-width:160px;border:1px solid var(--line-strong);border-radius:6px;padding:6px 10px;background:var(--surface)}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.seg button{background:var(--surface);border:0;padding:6px 10px;font-size:12.5px;border-right:1px solid var(--line-strong)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tblwrap{overflow:auto;max-height:calc(100vh - 330px);min-height:240px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+thead th{position:sticky;top:0;background:var(--surface-2);text-align:left;font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface-2)}
+tbody tr.sel td{background:var(--accent-soft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.ex{background:var(--good-soft);color:var(--good)}
+.pill.gd{background:var(--accent-soft);color:var(--accent)}
+.pill.bd{background:var(--bad-soft);color:var(--bad)}
+.pill.pn{background:var(--pending-soft);color:var(--ink-2)}
+.empty{padding:28px 16px;color:var(--ink-3);text-align:center}
+/* form */
+.form{padding:14px 14px 16px;display:flex;flex-direction:column;gap:12px}
+.ident{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.ident dt{color:var(--ink-3);margin:0}
+.ident dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--ink-2);font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.field label .cell{color:var(--ink-3);font-weight:400}
+.field input,.field select{border:1px solid var(--line-strong);border-radius:6px;padding:8px 10px;background:var(--surface);width:100%}
+.field input:invalid{border-color:var(--bad)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.preview{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface-2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.preview .big{font-size:30px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.preview .lab{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.bands{display:flex;gap:8px;font-size:11.5px;color:var(--ink-3);flex-wrap:wrap}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:12px;color:var(--ink-3)}
+.warnbox{border:1px solid var(--warn);background:var(--warn-soft);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:13px}
+.errbox{border:1px solid var(--bad);background:var(--bad-soft);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:13px;overflow-wrap:anywhere}
+.okbox{border:1px solid var(--good);background:var(--good-soft);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:13px}
+/* setup / settings */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-top:16px;max-width:820px}
+.card h2{font-size:16px;margin:0 0 6px}
+.card ol{padding-left:20px;margin:8px 0}
+.card li{margin-block:4px}
+code,.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:var(--surface-2);border-radius:4px;padding:1px 5px;overflow-wrap:anywhere}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(10,14,18,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);width:min(640px,100%);max-height:92vh;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.modal h3{margin:0;font-size:16px}
+.cells{width:100%;border-collapse:collapse;font-size:13px}
+.cells th,.cells td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.cells th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
+.cells td.old{color:var(--ink-3)}
+/* log */
+.log{margin-top:16px}
+.log details{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.log summary{padding:10px 12px;cursor:pointer;font-weight:600;font-size:13px}
+.log ul{list-style:none;margin:0;padding:0 12px 10px}
+.log li{font-size:12.5px;padding:6px 0;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap}
+.log li time{color:var(--ink-3);flex:none}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);z-index:60;max-width:min(560px,92vw)}
+.sr{position:absolute;left:-9999px}
+@media (prefers-reduced-motion:no-preference){.prog span{transition:flex-basis .4s ease}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Batch 3 Battery Recheck</h1>
+      <div class="sub" id="fileSub">New Battery Health entry · 09-04-2026 tab · Batch 3 Asset Disposal tracker</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="conn">
+      <span class="dot" id="connDot" aria-hidden="true"></span>
+      <span id="connText" class="note">Not signed in</span>
+      <button class="btn primary" id="signInBtn">Sign in with Microsoft</button>
+      <button class="btn" id="reloadBtn" hidden>Reload sheet</button>
+      <button class="btn" id="signOutBtn" hidden>Sign out</button>
+      <button class="btn icon" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <div id="topMsg" hidden></div>
+
+  <section class="kpis" id="kpis">
+    <div class="kpi"><div class="lab">Laptops</div><div class="val" id="kTotal">–</div><div class="hint">rows with a serial number</div></div>
+    <div class="kpi"><div class="lab">New health entered</div><div class="val" id="kDone">–</div><div class="hint" id="kDoneHint">–</div></div>
+    <div class="kpi"><div class="lab"><span class="sw pn"></span>Pending</div><div class="val" id="kPend">–</div><div class="hint">no new battery data yet</div></div>
+    <div class="kpi"><div class="lab"><span class="sw ex"></span>Excellent</div><div class="val" id="kEx">–</div><div class="hint">80–100 %</div></div>
+    <div class="kpi"><div class="lab"><span class="sw gd"></span>Good</div><div class="val" id="kGd">–</div><div class="hint">70–79 %</div></div>
+    <div class="kpi"><div class="lab"><span class="sw bd"></span>Bad</div><div class="val" id="kBd">–</div><div class="hint">below 70 %</div></div>
+  </section>
+  <div class="prog" id="prog" aria-hidden="true"><span class="ex" style="flex:0 0 0%"></span><span class="gd" style="flex:0 0 0%"></span><span class="bd" style="flex:0 0 0%"></span><span class="pn" style="flex:1 1 auto"></span></div>
+
+  <div class="main" id="main">
+    <section class="panel">
+      <div class="panel-h">
+        <h2>Laptops</h2>
+        <input class="search" id="search" type="search" placeholder="Search serial, asset tag, model, ref no…" aria-label="Search laptops">
+        <div class="seg" role="group" aria-label="Filter">
+          <button id="fAll" aria-pressed="false" data-f="all">All</button>
+          <button id="fPending" aria-pressed="true" data-f="pending">Pending</button>
+          <button id="fDone" aria-pressed="false" data-f="done">Entered</button>
+        </div>
+      </div>
+      <div class="tblwrap">
+        <table id="tbl">
+          <thead><tr>
+            <th>Row</th><th>Ref</th><th>Serial</th><th>Asset tag</th><th>Model</th>
+            <th class="num">Full chg</th><th class="num">Design</th><th class="num">Health</th><th class="num">Cycles</th><th>Status</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg">Sign in and the 09-04-2026 tab loads here.</div>
+      </div>
+    </section>
+
+    <section class="panel" id="formPanel">
+      <div class="panel-h"><h2>Enter new battery health</h2><div class="spacer"></div><span class="note" id="rowLabel"></span></div>
+      <div class="form" id="form">
+        <div class="empty" id="formEmpty">Pick a laptop from the list.</div>
+        <div id="formBody" hidden>
+          <dl class="ident">
+            <dt>Serial</dt><dd class="mono" id="iSerial"></dd>
+            <dt>Asset tag</dt><dd id="iTag"></dd>
+            <dt>Model</dt><dd id="iModel"></dd>
+            <dt>Ref no.</dt><dd id="iRef"></dd>
+            <dt>Pre-disposal</dt><dd id="iOld" class="note"></dd>
+          </dl>
+          <div class="field">
+            <label for="inDetected">Battery detected <span class="cell mono" id="cDetected"></span></label>
+            <select id="inDetected"><option value="Yes">Yes</option><option value="No">No</option></select>
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="inFull">Full charge capacity (mWh) <span class="cell mono" id="cFull"></span></label>
+              <input id="inFull" class="mono" inputmode="numeric" placeholder="e.g. 42967" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="inDesign">Design capacity (mWh) <span class="cell mono" id="cDesign"></span></label>
+              <input id="inDesign" class="mono" inputmode="numeric" placeholder="e.g. 47880" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="inCycles">Cycle count <span class="cell mono" id="cCycles"></span></label>
+            <input id="inCycles" class="mono" inputmode="numeric" placeholder="e.g. 191" autocomplete="off">
+          </div>
+          <div class="preview">
+            <div><div class="lab">Battery health</div><div class="big" id="pvPct">–</div></div>
+            <div style="text-align:right"><div class="lab">Band</div><div id="pvBand" style="margin-top:6px"><span class="pill pn">Enter both capacities</span></div></div>
+          </div>
+          <div class="bands"><span><span class="sw ex"></span> Excellent ≥ 80 %</span><span><span class="sw gd"></span> Good 70–79 %</span><span><span class="sw bd"></span> Bad &lt; 70 %</span></div>
+          <div id="formMsg" hidden></div>
+          <div class="actions">
+            <button class="btn primary" id="reviewBtn">Review &amp; write to tracker</button>
+            <button class="btn" id="clearBtn">Clear</button>
+            <span class="note">Nothing is written until you confirm the exact cells.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="log">
+    <details>
+      <summary>Write history on this device</summary>
+      <ul id="logList"><li class="note">No writes yet.</li></ul>
+    </details>
+  </section>
+
+  <section class="card" id="setupCard" hidden>
+    <h2>One-time setup: connect to Microsoft 365</h2>
+    <p class="note">This page reads and writes the tracker through the Microsoft Graph API using your own sign-in. It needs an Entra ID app registration (about five minutes, tenant admin).</p>
+    <ol>
+      <li>Entra admin center → <b>App registrations</b> → <b>New registration</b>. Name: <code>Batch 3 Battery Recheck</code>. Supported account types: <b>this organization only</b>.</li>
+      <li>Under <b>Redirect URI</b> choose platform <b>Single-page application (SPA)</b> and paste this page's address: <code id="redirUri"></code> <button class="btn sm" id="copyRedir">Copy</button></li>
+      <li><b>API permissions</b> → Add → Microsoft Graph → <b>Delegated</b> → <code>Files.ReadWrite.All</code> (and <code>User.Read</code>). Grant admin consent so team members are not prompted.</li>
+      <li>Copy the <b>Application (client) ID</b> and <b>Directory (tenant) ID</b> from the Overview page into Settings (⚙) here.</li>
+    </ol>
+    <p class="note">Anyone who opens this page must also have edit rights on the SharePoint file itself; Graph writes are made as the signed-in user and appear in the file's version history under their name.</p>
+  </section>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settingsModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <h3 id="settingsTitle">Settings</h3>
+    <div class="grid2">
+      <div class="field"><label for="sClient">Application (client) ID</label><input id="sClient" class="mono" placeholder="00000000-0000-0000-0000-000000000000"></div>
+      <div class="field"><label for="sTenant">Directory (tenant) ID</label><input id="sTenant" class="mono" placeholder="tenant GUID or organizations"></div>
+      <div class="field"><label for="sDrive">Drive ID</label><input id="sDrive" class="mono"></div>
+      <div class="field"><label for="sItem">File (item) ID</label><input id="sItem" class="mono"></div>
+      <div class="field"><label for="sSheet">Worksheet name</label><input id="sSheet" class="mono"></div>
+      <div class="field"><label for="sHeader">Header row</label><input id="sHeader" class="mono" inputmode="numeric"></div>
+    </div>
+    <h3 style="font-size:13.5px">Column letters</h3>
+    <div class="grid2">
+      <div class="field"><label for="cRef">New reference no.</label><input id="cRef" class="mono"></div>
+      <div class="field"><label for="cSerial">Serial number</label><input id="cSerial" class="mono"></div>
+      <div class="field"><label for="cTag">Asset tag</label><input id="cTag" class="mono"></div>
+      <div class="field"><label for="cModel">Model</label><input id="cModel" class="mono"></div>
+      <div class="field"><label for="cDesc">Asset description</label><input id="cDesc" class="mono"></div>
+      <div class="field"><label for="cOldPct">Pre-disposal health % (read only)</label><input id="cOldPct" class="mono"></div>
+      <div class="field"><label for="cDet">NEW battery detected (write)</label><input id="cDet" class="mono"></div>
+      <div class="field"><label for="cFullW">NEW full charge capacity (write)</label><input id="cFullW" class="mono"></div>
+      <div class="field"><label for="cDesignW">NEW design capacity (write)</label><input id="cDesignW" class="mono"></div>
+      <div class="field"><label for="cPct">NEW health % (formula, read only)</label><input id="cPct" class="mono"></div>
+      <div class="field"><label for="cCyclesW">NEW cycle count (write)</label><input id="cCyclesW" class="mono"></div>
+      <div class="field"><label for="cCond">NEW overall condition (formula, read only)</label><input id="cCond" class="mono"></div>
+    </div>
+    <p class="note">Only the four columns marked <b>write</b> are ever written. Cells that contain a formula are never overwritten, whatever is configured here.</p>
+    <div class="actions">
+      <button class="btn primary" id="saveSettings">Save</button>
+      <button class="btn" id="resetSettings">Reset to defaults</button>
+      <div class="spacer"></div>
+      <button class="btn" id="closeSettings">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-bg" id="confirmModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h3 id="confirmTitle">Confirm write to the tracker</h3>
+    <div id="confirmIdent" class="note"></div>
+    <div id="confirmChecks"></div>
+    <table class="cells"><thead><tr><th>Cell</th><th>Field</th><th>Current value</th><th>New value</th></tr></thead><tbody id="confirmRows"></tbody></table>
+    <p class="note">Sheet <b id="confirmSheet"></b>. The health % and overall condition cells are formulas and will recalculate on their own.</p>
+    <div class="actions">
+      <button class="btn primary" id="confirmWrite">Write these cells</button>
+      <button class="btn" id="cancelWrite">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.30.0/lib/msal-browser.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ---------- settings ---------- */
+const DEFAULTS = {
+  clientId:'e1482390-13ed-400f-8f81-17051e679aac', tenantId:'23dfa179-96b2-40f6-abd4-7fea317f0af6',
+  driveId:'b!1eLkAFJuGEyggRLcj4m4dK7yuuoxyhRChMXgqpKyEBD-5Y-sUrGEQJCb8TQjdX0a',
+  itemId:'01XVPX7Z27VWL2WHL4LNALYZZVLA6M2BEG',
+  sheet:'09-04-2026', headerRow:14,
+  col:{ref:'G', serial:'O', tag:'T', model:'Q', desc:'R', oldPct:'AN', det:'AQ', full:'AR', design:'AS', pct:'AT', cycles:'AU', cond:'AV'}
+};
+const LS_KEY='b3-battery-recheck-settings', LOG_KEY='b3-battery-recheck-log';
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+let S = Object.assign({}, DEFAULTS, lsGet(LS_KEY)||{});
+S.col = Object.assign({}, DEFAULTS.col, (lsGet(LS_KEY)||{}).col||{});
+
+/* ---------- column math ---------- */
+function colIdx(letters){ let n=0; for(const ch of letters.toUpperCase()) n=n*26+(ch.charCodeAt(0)-64); return n-1; }
+function idxCol(i){ let s=''; i++; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+function lastCol(){ return idxCol(Math.max(...Object.values(S.col).map(colIdx))); }
+
+/* ---------- state ---------- */
+let msalApp=null, account=null, rows=[], filter='pending', selected=null, lastLoaded=null, fileMeta=null, pending=null;
+
+/* ---------- UI helpers ---------- */
+let toastT;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true, 4200); }
+function setMsg(el, cls, html){ el.className=cls; el.innerHTML=html; el.hidden=false; }
+function fmtNum(v){ if(v===''||v==null) return ''; const n=Number(v); return isNaN(n)? String(v) : n.toLocaleString('en-US'); }
+function parseNum(s){ if(s==null) return NaN; const t=String(s).replace(/[,\s]/g,''); if(t==='') return NaN; return Number(t); }
+function pctText(v){ if(v===''||v==null) return ''; const n=Number(v); if(isNaN(n)) return String(v); return Math.round(n*100)+' %'; }
+function band(full, design){ if(!(design>0)||!(full>=0)) return null; const p=full/design; if(p>=0.8) return {k:'ex',label:'Excellent',p}; if(p>=0.7) return {k:'gd',label:'Good',p}; return {k:'bd',label:'Bad',p}; }
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- auth ---------- */
+function redirectUri(){ return location.origin + '/'; }
+function initMsal(){
+  if(!S.clientId) return null;
+  const authority = 'https://login.microsoftonline.com/' + (S.tenantId||'organizations');
+  msalApp = new msal.PublicClientApplication({
+    auth:{ clientId:S.clientId, authority, redirectUri: redirectUri(), navigateToLoginRequestUrl:false },
+    cache:{ cacheLocation:'localStorage' }
+  });
+  return msalApp;
+}
+const SCOPES=['User.Read','Files.ReadWrite.All'];
+async function signIn(){
+  if(!initMsal()){ openSettings(); return; }
+  await msalApp.initialize();
+  try{
+    const res = await msalApp.loginPopup({scopes:SCOPES, prompt:'select_account'});
+    account = res.account; afterSignIn();
+  }catch(e){
+    if(e && /popup_window_error|empty_window_error/.test(e.errorCode||'')){
+      setMsg($('topMsg'),'warnbox','The sign-in popup was blocked. Allow pop-ups for this page in your browser, then click Sign in again.');
+    }else if(e && /user_cancelled/.test(e.errorCode||'')){
+      setMsg($('topMsg'),'warnbox','Sign-in was cancelled.');
+    }else{
+      setMsg($('topMsg'),'errbox','Sign-in failed: '+esc(e.errorMessage||e.message||e));
+    }
+  }
+}
+async function token(){
+  const req={scopes:SCOPES, account};
+  try{ return (await msalApp.acquireTokenSilent(req)).accessToken; }
+  catch(e){ const r=await msalApp.acquireTokenPopup(req); return r.accessToken; }
+}
+async function afterSignIn(){
+  $('connDot').className='dot on';
+  $('connText').textContent=(account.name||account.username)+' · '+account.username;
+  $('signInBtn').hidden=true; $('signOutBtn').hidden=false; $('reloadBtn').hidden=false; $('setupCard').hidden=true; $('topMsg').hidden=true;
+  await loadSheet();
+}
+async function signOut(){ if(msalApp&&account){ await msalApp.logoutPopup({account}).catch(()=>{}); } account=null; location.reload(); }
+
+/* ---------- graph ---------- */
+const G='https://graph.microsoft.com/v1.0';
+function wbBase(){ return `${G}/drives/${encodeURIComponent(S.driveId)}/items/${encodeURIComponent(S.itemId)}/workbook`; }
+function wsBase(){ return `${wbBase()}/worksheets('${encodeURIComponent(S.sheet.replace(/'/g,"''"))}')`; }
+async function graph(url, opts={}){
+  const t=await token();
+  const r=await fetch(url,{...opts, headers:{Authorization:'Bearer '+t,'Content-Type':'application/json', ...(opts.headers||{})}});
+  if(r.status===204) return null;
+  const body=await r.json().catch(()=>({}));
+  if(!r.ok){ const m=(body.error&&(body.error.message||body.error.code))||r.statusText; const err=new Error(`${r.status} ${m}`); err.status=r.status; err.body=body; throw err; }
+  return body;
+}
+function rangeUrl(addr, select){ return `${wsBase()}/range(address='${encodeURIComponent(addr)}')`+(select?`?$select=${select}`:''); }
+
+async function loadSheet(){
+  const rb=$('reloadBtn'); rb.disabled=true; rb.textContent='Loading…';
+  try{
+    fileMeta = await graph(`${G}/drives/${encodeURIComponent(S.driveId)}/items/${encodeURIComponent(S.itemId)}?$select=name,webUrl,lastModifiedDateTime,lastModifiedBy`);
+    $('fileSub').innerHTML = `<a href="${esc(fileMeta.webUrl)}" target="_blank" rel="noopener">${esc(fileMeta.name)}</a> · tab <b>${esc(S.sheet)}</b> · file last modified ${new Date(fileMeta.lastModifiedDateTime).toLocaleString()}${fileMeta.lastModifiedBy&&fileMeta.lastModifiedBy.user? ' by '+esc(fileMeta.lastModifiedBy.user.displayName):''}`;
+    const used = await graph(`${wsBase()}/usedRange(valuesOnly=true)?$select=address,rowCount,rowIndex`);
+    const lastRow = used.rowIndex + used.rowCount; // 1-based last row
+    const first = S.headerRow+1;
+    if(lastRow<first) throw new Error('No data rows below the header row.');
+    const addr = `A${first}:${lastCol()}${lastRow}`;
+    const rng = await graph(rangeUrl(addr,'values,formulas,text'));
+    const c=S.col; const ix=Object.fromEntries(Object.entries(c).map(([k,v])=>[k,colIdx(v)]));
+    rows=[];
+    rng.values.forEach((v,i)=>{
+      const serial=String(v[ix.serial]??'').trim();
+      if(!serial) return;
+      const f=rng.formulas[i], t=rng.text[i];
+      rows.push({
+        row:first+i, serial, ref:v[ix.ref]??'', tag:v[ix.tag]??'', model:v[ix.model]??'', desc:v[ix.desc]??'', oldPct:v[ix.oldPct],
+        det:v[ix.det]??'', full:v[ix.full]??'', design:v[ix.design]??'', pct:v[ix.pct], pctText:t[ix.pct]??'', cycles:v[ix.cycles]??'', cond:v[ix.cond]??'',
+        formulas:{det:f[ix.det], full:f[ix.full], design:f[ix.design], cycles:f[ix.cycles], pct:f[ix.pct], cond:f[ix.cond]}
+      });
+    });
+    lastLoaded=new Date();
+    render();
+    if(selected){ const s=rows.find(r=>r.row===selected.row && r.serial===selected.serial); select(s||null,false); }
+    toast(`Loaded ${rows.length} laptops from ${S.sheet} · ${lastLoaded.toLocaleTimeString()}`);
+  }catch(e){
+    setMsg($('topMsg'),'errbox','Could not load the sheet: '+esc(e.message)+(e.status===403?' — your account needs edit access to the file, and the app needs Files.ReadWrite.All consent.':''));
+  }finally{ rb.disabled=false; rb.textContent='Reload sheet'; }
+}
+
+/* ---------- render ---------- */
+function isDone(r){ return r.full!=='' && r.design!=='' && !isNaN(Number(r.full)) && !isNaN(Number(r.design)); }
+function rowBand(r){ return isDone(r)? band(Number(r.full),Number(r.design)) : null; }
+function render(){
+  const done=rows.filter(isDone), pend=rows.length-done.length;
+  const ex=done.filter(r=>rowBand(r)?.k==='ex').length, gd=done.filter(r=>rowBand(r)?.k==='gd').length, bd=done.filter(r=>rowBand(r)?.k==='bd').length;
+  $('kTotal').textContent=rows.length; $('kDone').textContent=done.length; $('kDoneHint').textContent=rows.length? Math.round(done.length/rows.length*100)+' % of laptops':'–';
+  $('kPend').textContent=pend; $('kEx').textContent=ex; $('kGd').textContent=gd; $('kBd').textContent=bd;
+  const n=rows.length||1, ps=$('prog').children;
+  ps[0].style.flex=`0 0 ${ex/n*100}%`; ps[1].style.flex=`0 0 ${gd/n*100}%`; ps[2].style.flex=`0 0 ${bd/n*100}%`; ps[3].style.flex=`0 0 ${pend/n*100}%`;
+  const q=$('search').value.trim().toLowerCase();
+  const list=rows.filter(r=> (filter==='all'||(filter==='done'?isDone(r):!isDone(r))) && (!q || [r.serial,r.tag,r.model,r.ref,r.desc].some(x=>String(x).toLowerCase().includes(q))));
+  const tb=$('tbody'); tb.innerHTML='';
+  for(const r of list){
+    const b=rowBand(r);
+    const tr=document.createElement('tr'); tr.dataset.row=r.row; if(selected&&selected.row===r.row) tr.className='sel';
+    tr.innerHTML=`<td class="mono">${r.row}</td><td>${esc(r.ref)}</td><td class="mono">${esc(r.serial)}</td><td>${esc(r.tag)}</td><td>${esc(r.model)}</td>
+      <td class="num mono">${fmtNum(r.full)}</td><td class="num mono">${fmtNum(r.design)}</td><td class="num mono">${isDone(r)?(r.pctText||pctText(r.pct)):''}</td><td class="num mono">${fmtNum(r.cycles)}</td>
+      <td>${b?`<span class="pill ${b.k}">${b.label}</span>`:'<span class="pill pn">Pending</span>'}</td>`;
+    tr.addEventListener('click',()=>select(r,true));
+    tb.appendChild(tr);
+  }
+  $('emptyMsg').hidden=list.length>0; if(!list.length) $('emptyMsg').textContent= rows.length? 'No laptops match this filter.' : 'Sign in and the 09-04-2026 tab loads here.';
+}
+
+/* ---------- selection & form ---------- */
+function select(r, fill){
+  selected=r;
+  document.querySelectorAll('#tbody tr').forEach(tr=>tr.classList.toggle('sel', !!r && Number(tr.dataset.row)===r.row));
+  if(!r){ $('formBody').hidden=true; $('formEmpty').hidden=false; $('rowLabel').textContent=''; return; }
+  $('formBody').hidden=false; $('formEmpty').hidden=true; $('formMsg').hidden=true;
+  $('rowLabel').textContent=`Row ${r.row}`;
+  $('iSerial').textContent=r.serial; $('iTag').textContent=r.tag||'—'; $('iModel').textContent=[r.model,r.desc].filter(Boolean).join(' · ')||'—'; $('iRef').textContent=r.ref||'—';
+  $('iOld').textContent = r.oldPct!==''&&r.oldPct!=null ? `health ${pctText(r.oldPct)} at pre-disposal check` : 'no pre-disposal figure';
+  const c=S.col; $('cDetected').textContent=c.det+r.row; $('cFull').textContent=c.full+r.row; $('cDesign').textContent=c.design+r.row; $('cCycles').textContent=c.cycles+r.row;
+  if(fill){ $('inDetected').value = r.det==='No'?'No':'Yes'; $('inFull').value=r.full===''?'':String(r.full); $('inDesign').value=r.design===''?'':String(r.design); $('inCycles').value=r.cycles===''?'':String(r.cycles); }
+  preview();
+  if(fill) setTimeout(()=>$('inFull').focus(),0);
+}
+function preview(){
+  const full=parseNum($('inFull').value), design=parseNum($('inDesign').value);
+  const b=band(full,design);
+  $('pvPct').textContent = b? (Math.round(b.p*1000)/10).toFixed(1)+' %' : '–';
+  $('pvBand').innerHTML = b? `<span class="pill ${b.k}">${b.label}</span>` : `<span class="pill pn">Enter both capacities</span>`;
+}
+['inFull','inDesign','inCycles'].forEach(id=>$(id).addEventListener('input',preview));
+$('clearBtn').addEventListener('click',()=>{ $('inFull').value=''; $('inDesign').value=''; $('inCycles').value=''; $('inDetected').value='Yes'; preview(); });
+[$('inFull'),$('inDesign'),$('inCycles')].forEach(el=>el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); review(); } }));
+
+/* ---------- review & write ---------- */
+function validate(){
+  const det=$('inDetected').value, full=parseNum($('inFull').value), design=parseNum($('inDesign').value), cyc=parseNum($('inCycles').value);
+  const errs=[];
+  if(det==='Yes'){
+    if(isNaN(full)||full<0) errs.push('Full charge capacity must be a number.');
+    if(isNaN(design)||design<=0) errs.push('Design capacity must be a number greater than 0.');
+    if(!isNaN(full)&&!isNaN(design)&&full>design*1.15) errs.push('Full charge capacity is more than 115 % of design capacity — check the two values are not swapped.');
+    if($('inCycles').value.trim()!=='' && (isNaN(cyc)||cyc<0||!Number.isInteger(cyc))) errs.push('Cycle count must be a whole number.');
+  }
+  return {errs, det, full, design, cyc};
+}
+async function review(){
+  if(!selected) return;
+  const v=validate();
+  if(v.errs.length){ setMsg($('formMsg'),'errbox',v.errs.map(esc).join('<br>')); return; }
+  $('formMsg').hidden=true;
+  const r=selected, c=S.col;
+  const cells=[
+    {addr:c.det+r.row, field:'Battery detected', old:r.det, val:v.det, f:r.formulas.det},
+    {addr:c.full+r.row, field:'Full charge capacity', old:r.full, val: v.det==='Yes'? v.full : '', f:r.formulas.full},
+    {addr:c.design+r.row, field:'Design capacity', old:r.design, val: v.det==='Yes'? v.design : '', f:r.formulas.design},
+    {addr:c.cycles+r.row, field:'Cycle count', old:r.cycles, val: (v.det==='Yes' && !isNaN(v.cyc))? v.cyc : '', f:r.formulas.cycles},
+  ];
+  const formulaHits=cells.filter(x=>typeof x.f==='string' && x.f.startsWith('='));
+  const checks=[];
+  if(formulaHits.length){ checks.push(`<div class="errbox">Refusing: ${formulaHits.map(x=>x.addr).join(', ')} contain formulas. Check the column letters in Settings.</div>`); }
+  const changed=cells.filter(x=>String(x.old??'')!==String(x.val??''));
+  if(!changed.length){ setMsg($('formMsg'),'warnbox','These values are already in the tracker — nothing to write.'); return; }
+  const overwrite=cells.filter(x=>String(x.old??'')!=='' && String(x.old??'')!==String(x.val??''));
+  if(overwrite.length) checks.push(`<div class="warnbox">This <b>overwrites</b> existing values in ${overwrite.map(x=>x.addr).join(', ')}.</div>`);
+  $('confirmIdent').innerHTML=`Row <b>${r.row}</b> · serial <span class="mono">${esc(r.serial)}</span> · ${esc(r.tag||'')} ${esc(r.model||'')}. The row's serial is re-read from the file right before writing; if it no longer matches, nothing is written.`;
+  $('confirmChecks').innerHTML=checks.join('');
+  $('confirmRows').innerHTML=cells.map(x=>`<tr><td class="mono">${x.addr}</td><td>${x.field}</td><td class="old mono">${esc(x.old===''?'(blank)':fmtNum(x.old))}</td><td class="mono"><b>${esc(x.val===''?'(blank)':fmtNum(x.val))}</b></td></tr>`).join('');
+  $('confirmSheet').textContent=S.sheet;
+  $('confirmWrite').disabled=formulaHits.length>0;
+  pending={r,cells};
+  $('confirmModal').hidden=false; $('confirmWrite').focus();
+}
+async function doWrite(){
+  if(!pending) return;
+  const {r,cells}=pending; const c=S.col; const btn=$('confirmWrite');
+  btn.disabled=true; btn.textContent='Writing…';
+  try{
+    // 1. identity + formula guard, read fresh
+    const guardAddr=`${c.serial}${r.row}:${c.serial}${r.row}`;
+    const fresh=await graph(rangeUrl(guardAddr,'values'));
+    const liveSerial=String(fresh.values[0][0]??'').trim();
+    if(liveSerial!==r.serial) throw new Error(`Row ${r.row} now holds serial "${liveSerial}" instead of "${r.serial}" — the sheet changed (rows moved or sorted). Nothing was written. Reload and try again.`);
+    const tf=await graph(rangeUrl(`${c.det}${r.row}:${c.cond}${r.row}`,'formulas'));
+    const fRow=tf.formulas[0], base=colIdx(c.det);
+    for(const x of cells){ const f=fRow[colIdx(x.addr.replace(/\d+/,''))-base]; if(typeof f==='string'&&f.startsWith('=')) throw new Error(`${x.addr} contains a formula (${f}). Nothing was written.`); }
+    // 2. write, one contiguous block per group
+    const byCol=Object.fromEntries(cells.map(x=>[x.addr.replace(/\d+/,''),x.val]));
+    const groups=[]; const order=[c.det,c.full,c.design,c.cycles].map(colIdx).sort((a,b)=>a-b);
+    let g=null; for(const i of order){ const L=idxCol(i); if(g && i===g.end+1){ g.end=i; g.vals.push(byCol[L]); } else { g={start:i,end:i,vals:[byCol[L]]}; groups.push(g); } }
+    for(const grp of groups){
+      const addr=`${idxCol(grp.start)}${r.row}:${idxCol(grp.end)}${r.row}`;
+      await graph(rangeUrl(addr),{method:'PATCH', body:JSON.stringify({values:[grp.vals.map(v=>v===''?'':v)]})});
+    }
+    // 3. read back
+    const back=await graph(rangeUrl(`${c.det}${r.row}:${c.cond}${r.row}`,'values,text'));
+    const bv=back.values[0], bt=back.text[0];
+    const ix=k=>colIdx(c[k])-base;
+    Object.assign(r,{det:bv[ix('det')]??'', full:bv[ix('full')]??'', design:bv[ix('design')]??'', pct:bv[ix('pct')], pctText:bt[ix('pct')]??'', cycles:bv[ix('cycles')]??'', cond:bv[ix('cond')]??''});
+    const mismatch=cells.filter(x=>{ const k=Object.keys(c).find(k=>c[k]===x.addr.replace(/\d+/,'')); return String(r[k]??'')!==String(x.val??''); });
+    addLog({t:Date.now(), row:r.row, serial:r.serial, cells:cells.map(x=>`${x.addr}=${x.val===''?'(blank)':x.val}`).join(' '), user:account.username, back:`${r.pctText||pctText(r.pct)} ${r.cond}`});
+    $('confirmModal').hidden=true; pending=null;
+    render(); select(r,false);
+    if(mismatch.length) setMsg($('formMsg'),'warnbox',`Written, but read-back differs for ${mismatch.map(x=>x.addr).join(', ')}. Open the file and check.`);
+    else setMsg($('formMsg'),'okbox',`Written and verified. Excel now shows <b>${esc(r.pctText||pctText(r.pct))}</b> · <b>${esc(r.cond)}</b> for row ${r.row}.`);
+    toast(`Row ${r.row} (${r.serial}) written and verified`);
+    // advance to next pending
+    const next=rows.find(x=>!isDone(x) && x.row>r.row) || rows.find(x=>!isDone(x));
+    if(next && filter==='pending'){ setTimeout(()=>select(next,true),600); }
+  }catch(e){
+    $('confirmModal').hidden=true; pending=null;
+    setMsg($('formMsg'),'errbox','Write stopped: '+esc(e.message));
+  }finally{ btn.disabled=false; btn.textContent='Write these cells'; }
+}
+function addLog(entry){ const log=lsGet(LOG_KEY)||[]; log.unshift(entry); lsSet(LOG_KEY, log.slice(0,100)); renderLog(); }
+function renderLog(){ const log=lsGet(LOG_KEY)||[]; const ul=$('logList'); ul.innerHTML= log.length? log.map(e=>`<li><time>${new Date(e.t).toLocaleString()}</time><span>Row ${e.row} · <span class="mono">${esc(e.serial)}</span></span><span class="mono">${esc(e.cells)}</span><span class="note">→ ${esc(e.back||'')}</span><span class="note">${esc(e.user||'')}</span></li>`).join('') : '<li class="note">No writes yet.</li>'; }
+
+/* ---------- settings UI ---------- */
+function openSettings(){
+  $('sClient').value=S.clientId; $('sTenant').value=S.tenantId; $('sDrive').value=S.driveId; $('sItem').value=S.itemId; $('sSheet').value=S.sheet; $('sHeader').value=S.headerRow;
+  const m={cRef:'ref',cSerial:'serial',cTag:'tag',cModel:'model',cDesc:'desc',cOldPct:'oldPct',cDet:'det',cFullW:'full',cDesignW:'design',cPct:'pct',cCyclesW:'cycles',cCond:'cond'};
+  for(const [id,k] of Object.entries(m)) $(id).value=S.col[k];
+  $('settingsModal').hidden=false; $('sClient').focus();
+}
+$('saveSettings').addEventListener('click',()=>{
+  const m={cRef:'ref',cSerial:'serial',cTag:'tag',cModel:'model',cDesc:'desc',cOldPct:'oldPct',cDet:'det',cFullW:'full',cDesignW:'design',cPct:'pct',cCyclesW:'cycles',cCond:'cond'};
+  const col={}; for(const [id,k] of Object.entries(m)){ const v=$(id).value.trim().toUpperCase(); if(!/^[A-Z]{1,3}$/.test(v)){ toast('Column letters must be A–XFD'); return; } col[k]=v; }
+  S={clientId:$('sClient').value.trim(), tenantId:$('sTenant').value.trim()||'organizations', driveId:$('sDrive').value.trim(), itemId:$('sItem').value.trim(), sheet:$('sSheet').value.trim(), headerRow:Number($('sHeader').value)||14, col};
+  lsSet(LS_KEY,S); $('settingsModal').hidden=true; toast('Settings saved'); boot();
+});
+$('resetSettings').addEventListener('click',()=>{ S=JSON.parse(JSON.stringify(DEFAULTS)); lsSet(LS_KEY,S); openSettings(); });
+$('closeSettings').addEventListener('click',()=>$('settingsModal').hidden=true);
+$('settingsBtn').addEventListener('click',openSettings);
+$('copyRedir').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(redirectUri()); toast('Redirect URI copied'); }catch(e){ toast('Select and copy the URI manually'); } });
+
+/* ---------- wiring ---------- */
+$('signInBtn').addEventListener('click',signIn);
+$('signOutBtn').addEventListener('click',signOut);
+$('reloadBtn').addEventListener('click',loadSheet);
+$('reviewBtn').addEventListener('click',review);
+$('confirmWrite').addEventListener('click',doWrite);
+$('cancelWrite').addEventListener('click',()=>{ $('confirmModal').hidden=true; pending=null; });
+$('search').addEventListener('input',render);
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{ filter=b.dataset.f; document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed', x===b)); render(); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('confirmModal').hidden=true; $('settingsModal').hidden=true; pending=null; } });
+
+async function netCheck(){
+  const out=[];
+  for(const [name,url] of [['Microsoft sign-in','https://login.microsoftonline.com/common/discovery/instance?api-version=1.1&authorization_endpoint=https%3A%2F%2Flogin.microsoftonline.com%2Fcommon%2Foauth2%2Fv2.0%2Fauthorize'],['Microsoft Graph','https://graph.microsoft.com/v1.0/me']]){
+    try{ const r=await fetch(url,{cache:'no-store'}); out.push(`${name}: reachable (HTTP ${r.status})`); }
+    catch(e){ out.push(`${name}: BLOCKED (${e.message})`); }
+  }
+  const blocked=out.filter(x=>x.includes('BLOCKED'));
+  if(blocked.length){ setMsg($('topMsg'),'errbox','This copy of the page cannot reach Microsoft from where it is hosted: '+esc(blocked.join(' · '))+'. Host it on a site that allows connections to login.microsoftonline.com and graph.microsoft.com.'); }
+}
+async function boot(){
+  $('redirUri').textContent=redirectUri();
+  renderLog(); netCheck();
+  if(!S.clientId){ $('setupCard').hidden=false; setMsg($('topMsg'),'warnbox','Not connected yet. Complete the one-time setup below, then enter the client ID in Settings (⚙).'); return; }
+  $('setupCard').hidden=true; $('topMsg').hidden=true;
+  if(!initMsal()) return;
+  try{
+    await msalApp.initialize();
+    const res=await msalApp.handleRedirectPromise();
+    account = (res&&res.account) || msalApp.getAllAccounts()[0] || null;
+    if(account){ await afterSignIn(); }
+  }catch(e){ setMsg($('topMsg'),'errbox','Sign-in could not be restored: '+esc(e.errorMessage||e.message||e)); }
+}
+if(typeof msal==='undefined'){ setMsg($('topMsg'),'errbox','The Microsoft sign-in library did not load. Check your network and reload.'); }
+else boot();
+})();
+</script>
+
+</body>
+</html>
