@@ -496,7 +496,7 @@ function preview(){
 }
 ['inFull','inDesign','inCycles'].forEach(id=>$(id).addEventListener('input',preview));
 $('clearBtn').addEventListener('click',()=>review(true));
-[$('inFull'),$('inDesign'),$('inCycles')].forEach(el=>el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); review(); } }));
+[$('inFull'),$('inDesign'),$('inCycles')].forEach(el=>el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); review(false); } }));
 
 /* ---------- review & write ---------- */
 function validate(){
@@ -511,6 +511,7 @@ function validate(){
   return {errs, det, full, design, cyc};
 }
 async function review(clear=false){
+  clear = (clear===true);
   if(!selected) return;
   const r=selected, c=S.col;
   let cells;
@@ -618,7 +619,7 @@ $('copyRedir').addEventListener('click',async()=>{ try{ await navigator.clipboar
 $('signInBtn').addEventListener('click',signIn);
 $('signOutBtn').addEventListener('click',signOut);
 $('reloadBtn').addEventListener('click',loadSheet);
-$('reviewBtn').addEventListener('click',review);
+$('reviewBtn').addEventListener('click',()=>review(false));
 $('confirmWrite').addEventListener('click',doWrite);
 $('cancelWrite').addEventListener('click',()=>{ $('confirmModal').hidden=true; pending=null; });
 $('search').addEventListener('input',render);
